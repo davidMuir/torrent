@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use std::{collections::HashMap, fmt::Display, str};
+use std::{collections::HashMap, fmt::Debug, str};
 
 pub fn decode_bencoded(input: &[u8]) -> Result<Vec<Decoded>> {
     let (decodeds, _) = parse_internal(input)?;
@@ -85,7 +85,7 @@ fn parse_internal(input: &[u8]) -> Result<(Vec<Decoded>, usize)> {
     Ok((decodeds, current_index + 1))
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Decoded<'a> {
     ByteString(&'a [u8]),
     Integer(i64),
@@ -93,29 +93,19 @@ pub enum Decoded<'a> {
     Dictionary(HashMap<&'a str, Decoded<'a>>),
 }
 
-impl<'a> Display for Decoded<'a> {
+impl<'a> Debug for Decoded<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Decoded::ByteString(s) => write!(f, "\"{s:?}\""),
-            Decoded::Integer(i) => write!(f, "{i}"),
-            Decoded::List(l) => {
-                write!(f, "[")?;
-
-                for item in l {
-                    write!(f, "{item},")?;
+            Self::ByteString(arg0) => {
+                if let Ok(s) = str::from_utf8(arg0) {
+                    f.debug_tuple("ByteString").field(&s).finish()
+                } else {
+                    f.debug_tuple("ByteString").field(arg0).finish()
                 }
-
-                write!(f, "]")
             }
-            Decoded::Dictionary(d) => {
-                write!(f, "{{")?;
-
-                for (key, value) in d {
-                    write!(f, "\t{key}: {value},")?;
-                }
-
-                write!(f, "}}")
-            }
+            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
+            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
+            Self::Dictionary(arg0) => f.debug_tuple("Dictionary").field(arg0).finish(),
         }
     }
 }
