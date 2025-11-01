@@ -51,7 +51,7 @@ fn parse_internal(input: &[u8]) -> Result<(Vec<Decoded>, usize)> {
             let (inner, end_index) = parse_internal(&input[(current_index + 1)..])?;
 
             decodeds.push(Decoded::List(inner));
-            current_index += end_index;
+            current_index += end_index + 1;
         } else if current_value == b'd' {
             let (inner, end_index) = parse_internal(&input[(current_index + 1)..])?;
 
@@ -72,7 +72,7 @@ fn parse_internal(input: &[u8]) -> Result<(Vec<Decoded>, usize)> {
             }
 
             decodeds.push(Decoded::Dictionary(dict));
-            current_index += end_index;
+            current_index += end_index + 1;
         } else if current_value == b'e' {
             break;
         } else {
@@ -98,14 +98,16 @@ impl<'a> Debug for Decoded<'a> {
         match self {
             Self::ByteString(arg0) => {
                 if let Ok(s) = str::from_utf8(arg0) {
-                    f.debug_tuple("ByteString").field(&s).finish()
+                    write!(f, "\"{s}\"")
+                    // f.debug_tuple("ByteString").field(&s).finish()
                 } else {
-                    f.debug_tuple("ByteString").field(arg0).finish()
+                    write!(f, "{arg0:?}")
+                    // f.debug_tuple("ByteString").field(arg0).finish()
                 }
             }
-            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
-            Self::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
-            Self::Dictionary(arg0) => f.debug_tuple("Dictionary").field(arg0).finish(),
+            Self::Integer(arg0) => write!(f, "{arg0}"), //f.debug_tuple("Integer").field(arg0).finish(),
+            Self::List(arg0) => write!(f, "{arg0:#?}"), //f.debug_tuple("List").field(arg0).finish(),
+            Self::Dictionary(arg0) => write!(f, "{arg0:#?}"), //f.debug_tuple("Dictionary").field(arg0).finish(),
         }
     }
 }
@@ -159,6 +161,17 @@ mod tests {
     }
 
     #[test]
+    fn parses_list_of_lists() {
+        let input = "ll4:spenel4:spenee";
+        let expected = vec![Decoded::List(vec![
+            Decoded::List(vec![Decoded::ByteString(b"spen")]),
+            Decoded::List(vec![Decoded::ByteString(b"spen")]),
+        ])];
+
+        assert_eq!(expected, decode_bencoded(input.as_bytes()).unwrap());
+    }
+
+    #[test]
     fn parses_dict() {
         let input = "d4:spami7e3:keyd4:spami7eee";
         let expected = vec![Decoded::Dictionary(HashMap::from([
@@ -168,6 +181,33 @@ mod tests {
                 Decoded::Dictionary(HashMap::from([("spam", Decoded::Integer(7))])),
             ),
         ]))];
+
+        assert_eq!(expected, decode_bencoded(input.as_bytes()).unwrap());
+    }
+
+    #[test]
+    fn foo() {
+        let input = "ll40:udp://tracker.leechers-paradise.org:6969el34:udp://tracker.coppersurfer.tk:6969el33:udp://tracker.opentrackr.org:1337el23:udp://explodie.org:6969el31:udp://tracker.empire-js.us:1337el26:wss://tracker.btorrent.xyzel32:wss://tracker.openwebtorrent.comel25:wss://tracker.fastcast.nzee";
+        let expected = vec![Decoded::List(vec![
+            Decoded::List(vec![Decoded::ByteString(
+                b"udp://tracker.leechers-paradise.org:6969",
+            )]),
+            Decoded::List(vec![Decoded::ByteString(
+                b"udp://tracker.coppersurfer.tk:6969",
+            )]),
+            Decoded::List(vec![Decoded::ByteString(
+                b"udp://tracker.opentrackr.org:1337",
+            )]),
+            Decoded::List(vec![Decoded::ByteString(b"udp://explodie.org:6969")]),
+            Decoded::List(vec![Decoded::ByteString(
+                b"udp://tracker.empire-js.us:1337",
+            )]),
+            Decoded::List(vec![Decoded::ByteString(b"wss://tracker.btorrent.xyz")]),
+            Decoded::List(vec![Decoded::ByteString(
+                b"wss://tracker.openwebtorrent.com",
+            )]),
+            Decoded::List(vec![Decoded::ByteString(b"wss://tracker.fastcast.nz")]),
+        ])];
 
         assert_eq!(expected, decode_bencoded(input.as_bytes()).unwrap());
     }
